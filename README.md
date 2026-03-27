@@ -1,14 +1,43 @@
-# Cylendra Wala
+# Cylendra-Wala
 
-Cylendra Wala is a placement-ready LPG delivery aggregator starter built from an industry-style blueprint. It includes a Node.js + Express + MongoDB backend and a React + Vite frontend aligned with customer, rider, and admin workflows.
+Cylendra-Wala is a production-ready LPG cylinder delivery logistics platform designed to manage customers, dealers, riders and administrators in a scalable delivery ecosystem.
 
 ## Tech Stack
 
-- Backend: Node.js, Express.js, MongoDB, Mongoose, JWT, bcrypt
-- Frontend: React, Vite, Axios
-- Integrations included: Razorpay-ready payment flow with demo fallback
-- Integrations planned next: Google Maps, Firebase
-- Deployment targets: Render, Vercel, MongoDB Atlas
+### Backend
+Node.js  
+Express.js  
+MongoDB  
+Mongoose  
+JWT Authentication  
+bcrypt  
+
+### Frontend
+React.js  
+Vite  
+Axios  
+
+### Integrations
+Razorpay Payment Gateway  
+
+### Deployment Targets
+Render  
+Vercel  
+MongoDB Atlas
+
+## System Architecture
+
+Role based authentication (Customer, Rider, Dealer, Admin)
+
+Service area based order validation
+
+Rider assignment based on proximity and workload
+
+OTP based delivery verification
+
+Modular REST API structure
+
+Secure payment verification workflow
 
 ## Backend Features
 
@@ -33,28 +62,32 @@ Cylendra Wala is a placement-ready LPG delivery aggregator starter built from an
 - Login and registration pages wired to backend APIs
 - Reusable components for order button, map view, and order status
 
-## Setup
+## Local Development Setup
 
-### 1. Backend
+### Backend
 
-```bash
 cd backend
+
 copy .env.example .env
+
 npm install
+
 npm run seed
+
 npm run dev
-```
 
-### 2. Frontend
 
-```bash
+### Frontend
+
 cd frontend
-copy .env.example .env
-npm install
-npm run dev
-```
 
-## Gmail OTP Setup
+copy .env.example .env
+
+npm install
+
+npm run dev
+
+## Email OTP Configuration
 
 The forgot-password flow now uses email OTP instead of SMS. To send real OTP emails through Gmail:
 
@@ -72,26 +105,29 @@ SMTP_FROM=Cylendra Wala <your-gmail-address@gmail.com>
 
 If these values are missing or left as placeholders, the app falls back to demo email mode and shows the OTP in the UI instead of sending a real email.
 
-## Demo Accounts
-
-- Customer: `8888888888` / `123456` / `customer@cylendrawala.demo`
-- Admin: `9999999999` / `123456` / `admin@cylendrawala.demo`
-- Rider: `7000000011` / `123456` / `rahul.rider@cylendrawala.demo`
-
 ## Payment Notes
 
 - If `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are real values, the customer payment flow will open Razorpay Checkout.
 - If those values are left as placeholders, the app automatically uses a local demo-payment path so you can still present the full project.
 
-## Demo Flow
+## Order Workflow
+Customer places cylinder order
 
-1. Login as the customer and create an order from the home page.
-2. Click `Pay Now` to complete payment.
-3. Open the rider workspace and accept the pending order.
-4. Mark the order as picked to generate the OTP.
-5. Verify the OTP to complete delivery.
-6. Login as admin and open the dashboard to show updated revenue.
-7. Use forgot password with the registered email if you want to test email OTP delivery.
+Payment is processed
+
+Dealer receives order
+
+Rider accepts delivery
+
+Rider picks cylinder
+
+Customer shares OTP
+
+Rider verifies OTP
+
+Order marked delivered
+
+Admin dashboard updates revenue
 
 ## Core API Endpoints
 
@@ -134,12 +170,6 @@ If these values are missing or left as placeholders, the app falls back to demo 
 - `GET /api/admin/riders`
 - `GET /api/admin/dealers`
 
-## Verification Completed
-
-- Frontend production build completed successfully with `npm run build`
-- Backend API tests pass with `npm test`
-- Payment UI and backend payment endpoints compile cleanly
-- Live order, rider, OTP, and admin revenue flow had already been verified
 
 ## Next Recommended Enhancements
 
