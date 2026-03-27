@@ -177,3 +177,7 @@ Admin dashboard updates revenue
 - Add Firebase push notifications for nearby riders
 - Add charts, filters, and live tables to the admin dashboard
 - Add dealer login and dealer notification inbox
+
+## License
+
+This project is proprietary software developed for Cylendra-Wala operations.
