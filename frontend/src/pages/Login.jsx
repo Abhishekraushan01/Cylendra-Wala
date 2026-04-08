@@ -25,7 +25,7 @@ function Login() {
       setStoredToken(data.token);
       setStoredRole(data.user.role);
       setResponse(data.user);
-      navigate(data.user.role === "admin" ? "/dashboard" : "/");
+      navigate("/");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Login failed");
     }
@@ -66,10 +66,10 @@ function Login() {
   };
 
   return (
-    <section className="panel auth-panel">
+    <section className="panel auth-panel mobile-auth-card">
       <h1>Login</h1>
       <p className="helper-text">Demo customer: 8888888888 / 123456. Demo admin: 9999999999 / 123456.</p>
-      <p className="helper-text">Riders should use <Link to="/rider">Rider Login</Link>.</p>
+      <p className="helper-text">Riders should use <Link to="/rider">Rider Login</Link>. Dealers should use <Link to="/dealer">Dealer Login</Link>.</p>
       <form className="form-grid" onSubmit={handleSubmit}>
         <input
           placeholder="Phone"

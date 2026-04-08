@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const connectDB = require("./config/db");
 const Dealer = require("./models/Dealer");
 const Rider = require("./models/Rider");
+const ServiceArea = require("./models/ServiceArea");
 const User = require("./models/User");
 
 const seed = async () => {
@@ -11,6 +12,7 @@ const seed = async () => {
   await Promise.all([
     Dealer.deleteMany({}),
     Rider.deleteMany({}),
+    ServiceArea.deleteMany({}),
     User.deleteMany({ phone: { $in: ["9999999999", "8888888888"] } })
   ]);
 
@@ -36,6 +38,29 @@ const seed = async () => {
     role: "user"
   });
 
+  const serviceAreas = await ServiceArea.insertMany([
+    {
+      name: "Central Kolkata",
+      city: "Kolkata",
+      address: "Park Street Launch Zone",
+      latitude: 22.5726,
+      longitude: 88.3639,
+      radiusKm: 8,
+      isActive: true,
+      createdByAdmin: admin._id
+    },
+    {
+      name: "Salt Lake Cluster",
+      city: "Kolkata",
+      address: "Salt Lake Sector V Launch Zone",
+      latitude: 22.585,
+      longitude: 88.417,
+      radiusKm: 6,
+      isActive: true,
+      createdByAdmin: admin._id
+    }
+  ]);
+
   const dealers = await Dealer.insertMany([
     {
       dealerName: "Rakesh Gupta",
@@ -48,7 +73,9 @@ const seed = async () => {
         longitude: 88.3526
       },
       subscriptionPlan: "premium",
-      commissionRate: 20
+      commissionRate: 20,
+      isActive: true,
+      createdByAdmin: admin._id
     },
     {
       dealerName: "Anita Sharma",
@@ -61,7 +88,9 @@ const seed = async () => {
         longitude: 88.417
       },
       subscriptionPlan: "growth",
-      commissionRate: 22
+      commissionRate: 22,
+      isActive: true,
+      createdByAdmin: admin._id
     }
   ]);
 
@@ -77,7 +106,10 @@ const seed = async () => {
         longitude: 88.36
       },
       availability: true,
-      rating: 4.8
+      rating: 4.8,
+      createdByAdmin: admin._id,
+      onboardingStatus: "active",
+      isActive: true
     },
     {
       name: "Imran Rider",
@@ -90,7 +122,10 @@ const seed = async () => {
         longitude: 88.4
       },
       availability: true,
-      rating: 4.6
+      rating: 4.6,
+      createdByAdmin: admin._id,
+      onboardingStatus: "active",
+      isActive: true
     }
   ]);
 
@@ -98,6 +133,7 @@ const seed = async () => {
   console.log({
     admin: { phone: admin.phone, email: admin.email, password: "123456" },
     customer: { phone: demoUser.phone, email: demoUser.email, password: "123456" },
+    serviceAreas: serviceAreas.map((area) => ({ name: area.name, city: area.city, radiusKm: area.radiusKm })),
     dealers: dealers.map((dealer) => ({ phone: dealer.phone, agencyName: dealer.agencyName, password: "123456" })),
     riders: riders.map((rider) => ({ phone: rider.phone, email: rider.email, password: "123456" }))
   });

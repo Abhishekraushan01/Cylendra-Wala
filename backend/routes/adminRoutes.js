@@ -10,7 +10,11 @@ const {
   createDealer,
   updateDealerStatus,
   deleteDealer,
-  getDealerNotifications
+  getDealerNotifications,
+  getServiceAreas,
+  createServiceArea,
+  updateServiceAreaStatus,
+  deleteServiceArea
 } = require("../controllers/adminController");
 const { authorize, protect } = require("../middleware/auth");
 
@@ -28,5 +32,9 @@ router.post("/dealers", createDealer);
 router.put("/dealers/:id/status", updateDealerStatus);
 router.delete("/dealers/:id", deleteDealer);
 router.get("/dealers/:id/notifications", getDealerNotifications);
+router.get("/service-areas", getServiceAreas);
+router.post("/service-areas", createServiceArea);
+router.put("/service-areas/:id/status", updateServiceAreaStatus);
+router.delete("/service-areas/:id", deleteServiceArea);
 
 module.exports = router;

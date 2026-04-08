@@ -23,23 +23,13 @@ function Navbar() {
           Cylendra Wala
         </NavLink>
       </div>
-      <nav className="nav-links">
+      <nav className="nav-links mobile-bottom-nav">
         <NavLink className={getNavClassName} to="/" end>
           Home
         </NavLink>
         {role === "admin" && (
           <NavLink className={getNavClassName} to="/dashboard">
             Dashboard
-          </NavLink>
-        )}
-        {!isLoggedIn && (
-          <NavLink className={getNavClassName} to="/rider">
-            Rider Login
-          </NavLink>
-        )}
-        {!isLoggedIn && (
-          <NavLink className={getNavClassName} to="/dealer">
-            Dealer Login
           </NavLink>
         )}
         {!isLoggedIn && (
@@ -52,8 +42,18 @@ function Navbar() {
             Register
           </NavLink>
         )}
+        {!isLoggedIn && (
+          <NavLink className={getNavClassName} to="/rider">
+            Rider
+          </NavLink>
+        )}
+        {!isLoggedIn && (
+          <NavLink className={getNavClassName} to="/dealer">
+            Dealer
+          </NavLink>
+        )}
         {isLoggedIn && (
-          <button className="ghost-button" type="button" onClick={handleLogout}>
+          <button className="ghost-button logout-nav-button" type="button" onClick={handleLogout}>
             Logout
           </button>
         )}

@@ -22,6 +22,11 @@ const orderSchema = new mongoose.Schema(
       ref: "Dealer",
       required: true
     },
+    serviceAreaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ServiceArea",
+      required: true
+    },
     status: {
       type: String,
       enum: ["pending", "accepted", "picked", "delivered", "cancelled"],

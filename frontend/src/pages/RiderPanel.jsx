@@ -170,7 +170,7 @@ function RiderPanel() {
 
   if (getStoredToken() && getStoredRole() && getStoredRole() !== "rider") {
     return (
-      <section className="panel auth-panel">
+      <section className="panel auth-panel mobile-auth-card">
         <h1>Rider Only</h1>
         <p className="error-text">This panel is only available to rider accounts.</p>
         <button className="primary-button" type="button" onClick={() => navigate("/login")}>Go to Login</button>
@@ -181,9 +181,9 @@ function RiderPanel() {
   return (
     <div className="stack">
       {!isLoggedInRider && (
-        <section className="panel auth-panel">
+        <section className="panel auth-panel mobile-auth-card">
           <h1>Rider Panel</h1>
-          <p className="helper-text">Use your rider phone and password to enter the delivery workspace. demo phone=1111111111 and pass=111111</p>
+          <p className="helper-text">Use your rider phone and password to enter the delivery workspace. Demo rider: 7000000011 / 123456.</p>
           <form className="form-grid" onSubmit={handleLogin}>
             <input
               placeholder="Phone"
@@ -344,3 +344,5 @@ function RiderPanel() {
 }
 
 export default RiderPanel;
+
+

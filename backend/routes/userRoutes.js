@@ -7,6 +7,7 @@ const {
   getUserProfile,
   updateUserLocation,
   getDealers,
+  getServiceAreas,
   getPublicMetrics
 } = require("../controllers/userController");
 const { protect } = require("../middleware/auth");
@@ -14,6 +15,7 @@ const { protect } = require("../middleware/auth");
 const router = express.Router();
 
 router.get("/dealers", getDealers);
+router.get("/service-areas", getServiceAreas);
 router.get("/public-metrics", getPublicMetrics);
 router.post("/register", registerUser);
 router.post("/login", loginUser);

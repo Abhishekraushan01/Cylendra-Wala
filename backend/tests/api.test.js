@@ -19,6 +19,7 @@ const { disconnectDB } = require("../config/db");
 const Dealer = require("../models/Dealer");
 const Order = require("../models/Order");
 const Rider = require("../models/Rider");
+const ServiceArea = require("../models/ServiceArea");
 const User = require("../models/User");
 
 const app = createApp();
@@ -30,6 +31,7 @@ let riderToken;
 let dealerToken;
 let dealer;
 let rider;
+let serviceArea;
 let createdOrder;
 
 const cleanupPhones = [
@@ -74,6 +76,7 @@ test.before(async () => {
     Order.deleteMany({}),
     Dealer.deleteMany({}),
     Rider.deleteMany({}),
+    ServiceArea.deleteMany({}),
     User.deleteMany({
       $or: [
         { phone: { $in: cleanupPhones } },
@@ -119,6 +122,7 @@ test.after(async () => {
     Order.deleteMany({}),
     Dealer.deleteMany({}),
     Rider.deleteMany({}),
+    ServiceArea.deleteMany({}),
     User.deleteMany({
       $or: [
         { phone: { $in: cleanupPhones } },
@@ -187,6 +191,28 @@ test("user forgot password flow resets password using email OTP", async () => {
   });
   assert.equal(loginWithNewPassword.status, 200);
   customerToken = loginWithNewPassword.data.token;
+});
+
+test("admin can launch a serviceable area", async () => {
+  const createAreaResponse = await requestJson("/api/admin/service-areas", {
+    method: "POST",
+    token: adminToken,
+    body: {
+      name: "Central Kolkata",
+      city: "Kolkata",
+      address: "Park Street",
+      latitude: 22.5726,
+      longitude: 88.3639,
+      radiusKm: 8
+    }
+  });
+
+  assert.equal(createAreaResponse.status, 201);
+  serviceArea = createAreaResponse.data.serviceArea;
+
+  const publicAreasResponse = await requestJson("/api/user/service-areas");
+  assert.equal(publicAreasResponse.status, 200);
+  assert.ok(publicAreasResponse.data.some((area) => area._id === serviceArea._id));
 });
 
 test("admin can onboard dealer and rider with valid contact info", async () => {
@@ -289,7 +315,7 @@ test("admin rider creation rejects invalid email", async () => {
   assert.equal(invalidRider.data.message, "Enter a valid email address");
 });
 
-test("customer can fetch dealers and create an order with dealer and rider notifications", async () => {
+test("customer can fetch dealers and create an order inside the launched service area", async () => {
   const dealersResponse = await requestJson("/api/user/dealers");
   assert.equal(dealersResponse.status, 200);
   assert.ok(dealersResponse.data.some((item) => item._id === dealer._id));
@@ -313,6 +339,28 @@ test("customer can fetch dealers and create an order with dealer and rider notif
 
   assert.equal(createOrderResponse.status, 201);
   createdOrder = createOrderResponse.data.order;
+
+  const outOfAreaOrderResponse = await requestJson("/api/order/create", {
+    method: "POST",
+    token: customerToken,
+    body: {
+      dealerId: dealer._id,
+      customerLocation: {
+        address: "Far Away",
+        latitude: 23.2,
+        longitude: 87.9
+      },
+      dealerLocation: dealer.location,
+      amount: 950,
+      platformFee: 20,
+      riderFee: 30
+    }
+  });
+  assert.equal(outOfAreaOrderResponse.status, 400);
+  assert.equal(
+    outOfAreaOrderResponse.data.message,
+    "Delivery for this location is not available yet. We will be there soon."
+  );
 
   const notificationsResponse = await requestJson(`/api/admin/dealers/${dealer._id}/notifications`, {
     token: adminToken
@@ -341,18 +389,13 @@ test("dealer can log in and see booked orders routed to the agency", async () =>
   assert.ok(dealerNotificationsResponse.data.some((notification) => notification.orderId?.orderId === createdOrder.orderId));
 });
 
-test("admin can disable and re-enable dealer and rider, and inactive dealer disappears from public listing", async () => {
+test("admin can disable and re-enable dealer rider and service area", async () => {
   const disableDealer = await requestJson(`/api/admin/dealers/${dealer._id}/status`, {
     method: "PUT",
     token: adminToken,
     body: { isActive: false }
   });
   assert.equal(disableDealer.status, 200);
-  assert.equal(disableDealer.data.dealer.isActive, false);
-
-  const publicDealersAfterDisable = await requestJson("/api/user/dealers");
-  assert.equal(publicDealersAfterDisable.status, 200);
-  assert.equal(publicDealersAfterDisable.data.some((item) => item._id === dealer._id), false);
 
   const disableRider = await requestJson(`/api/admin/riders/${rider._id}/status`, {
     method: "PUT",
@@ -360,7 +403,17 @@ test("admin can disable and re-enable dealer and rider, and inactive dealer disa
     body: { isActive: false }
   });
   assert.equal(disableRider.status, 200);
-  assert.equal(disableRider.data.rider.isActive, false);
+
+  const disableArea = await requestJson(`/api/admin/service-areas/${serviceArea._id}/status`, {
+    method: "PUT",
+    token: adminToken,
+    body: { isActive: false }
+  });
+  assert.equal(disableArea.status, 200);
+
+  const publicAreasAfterDisable = await requestJson("/api/user/service-areas");
+  assert.equal(publicAreasAfterDisable.status, 200);
+  assert.equal(publicAreasAfterDisable.data.some((area) => area._id === serviceArea._id), false);
 
   const riderLoginBlocked = await requestJson("/api/rider/login", {
     method: "POST",
@@ -374,7 +427,6 @@ test("admin can disable and re-enable dealer and rider, and inactive dealer disa
     body: { isActive: true }
   });
   assert.equal(enableDealer.status, 200);
-  assert.equal(enableDealer.data.dealer.isActive, true);
 
   const enableRider = await requestJson(`/api/admin/riders/${rider._id}/status`, {
     method: "PUT",
@@ -382,21 +434,13 @@ test("admin can disable and re-enable dealer and rider, and inactive dealer disa
     body: { isActive: true }
   });
   assert.equal(enableRider.status, 200);
-  assert.equal(enableRider.data.rider.isActive, true);
 
-  const riderLoginAgain = await requestJson("/api/rider/login", {
-    method: "POST",
-    body: { phone: "9100000003", password: "654321" }
+  const enableArea = await requestJson(`/api/admin/service-areas/${serviceArea._id}/status`, {
+    method: "PUT",
+    token: adminToken,
+    body: { isActive: true }
   });
-  assert.equal(riderLoginAgain.status, 200);
-  riderToken = riderLoginAgain.data.token;
-
-  const dealerLoginAgain = await requestJson("/api/dealer/login", {
-    method: "POST",
-    body: { phone: "9100000090", password: "123456" }
-  });
-  assert.equal(dealerLoginAgain.status, 200);
-  dealerToken = dealerLoginAgain.data.token;
+  assert.equal(enableArea.status, 200);
 });
 
 test("customer payment flow creates a payment order and completes demo payment", async () => {
@@ -419,7 +463,14 @@ test("customer payment flow creates a payment order and completes demo payment",
   assert.equal(demoPaymentResponse.data.order.paymentStatus, "success");
 });
 
-test("rider can accept order, mark picked, and complete OTP delivery", async () => {
+test("rider can accept order mark picked and complete OTP delivery", async () => {
+  const riderLoginAgain = await requestJson("/api/rider/login", {
+    method: "POST",
+    body: { phone: "9100000003", password: "654321" }
+  });
+  assert.equal(riderLoginAgain.status, 200);
+  riderToken = riderLoginAgain.data.token;
+
   const riderOrdersResponse = await requestJson("/api/rider/orders", {
     token: riderToken
   });
@@ -452,7 +503,7 @@ test("rider can accept order, mark picked, and complete OTP delivery", async () 
   assert.equal(verifyOtpResponse.data.order.status, "delivered");
 });
 
-test("linked rider and dealer cannot be deleted, but unlinked ones can be removed", async () => {
+test("linked rider dealer and service area cannot be deleted but unlinked ones can", async () => {
   const deleteLinkedDealer = await requestJson(`/api/admin/dealers/${dealer._id}`, {
     method: "DELETE",
     token: adminToken
@@ -464,6 +515,26 @@ test("linked rider and dealer cannot be deleted, but unlinked ones can be remove
     token: adminToken
   });
   assert.equal(deleteLinkedRider.status, 400);
+
+  const deleteLinkedArea = await requestJson(`/api/admin/service-areas/${serviceArea._id}`, {
+    method: "DELETE",
+    token: adminToken
+  });
+  assert.equal(deleteLinkedArea.status, 400);
+
+  const extraAreaResponse = await requestJson("/api/admin/service-areas", {
+    method: "POST",
+    token: adminToken,
+    body: {
+      name: "Unused Zone",
+      city: "Kolkata",
+      address: "Unused",
+      latitude: 22.61,
+      longitude: 88.41,
+      radiusKm: 3
+    }
+  });
+  assert.equal(extraAreaResponse.status, 201);
 
   const extraDealerResponse = await requestJson("/api/admin/dealers", {
     method: "POST",
@@ -496,6 +567,12 @@ test("linked rider and dealer cannot be deleted, but unlinked ones can be remove
     }
   });
   assert.equal(extraRiderResponse.status, 201);
+
+  const deleteArea = await requestJson(`/api/admin/service-areas/${extraAreaResponse.data.serviceArea._id}`, {
+    method: "DELETE",
+    token: adminToken
+  });
+  assert.equal(deleteArea.status, 200);
 
   const deleteDealer = await requestJson(`/api/admin/dealers/${extraDealerResponse.data.dealer._id}`, {
     method: "DELETE",

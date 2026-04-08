@@ -22,6 +22,7 @@ export const requestUserPasswordReset = (payload) => api.post("/user/forgot-pass
 export const resetUserPassword = (payload) => api.post("/user/reset-password", payload);
 export const fetchProfile = () => api.get("/user/profile");
 export const fetchDealers = () => api.get("/user/dealers");
+export const fetchServiceAreas = () => api.get("/user/service-areas");
 export const fetchPublicMetrics = () => api.get("/user/public-metrics");
 export const createOrder = (payload) => api.post("/order/create", payload);
 export const fetchUserOrders = (userId) => api.get(`/order/user/${userId}`);
@@ -54,5 +55,9 @@ export const createAdminDealer = (payload) => api.post("/admin/dealers", payload
 export const updateAdminDealerStatus = (dealerId, isActive) => api.put(`/admin/dealers/${dealerId}/status`, { isActive });
 export const deleteAdminDealer = (dealerId) => api.delete(`/admin/dealers/${dealerId}`);
 export const fetchDealerNotifications = (dealerId) => api.get(`/admin/dealers/${dealerId}/notifications`);
+export const fetchAdminServiceAreas = () => api.get("/admin/service-areas");
+export const createAdminServiceArea = (payload) => api.post("/admin/service-areas", payload);
+export const updateAdminServiceAreaStatus = (serviceAreaId, isActive) => api.put(`/admin/service-areas/${serviceAreaId}/status`, { isActive });
+export const deleteAdminServiceArea = (serviceAreaId) => api.delete(`/admin/service-areas/${serviceAreaId}`);
 
 export default api;

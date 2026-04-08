@@ -1,6 +1,7 @@
 const Dealer = require("../models/Dealer");
 const Order = require("../models/Order");
 const Rider = require("../models/Rider");
+const ServiceArea = require("../models/ServiceArea");
 const User = require("../models/User");
 const { generateOTP } = require("../utils/otp");
 const {
@@ -11,13 +12,24 @@ const {
   verifyPaymentSignature
 } = require("../utils/payment");
 
-const distanceBetween = (origin, destination) => {
-  const dx = destination.latitude - origin.latitude;
-  const dy = destination.longitude - origin.longitude;
-  return Math.sqrt(dx ** 2 + dy ** 2);
+const createOrderId = () => `CW-${Date.now()}`;
+
+const haversineKm = (origin, destination) => {
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const latitudeDelta = toRadians(destination.latitude - origin.latitude);
+  const longitudeDelta = toRadians(destination.longitude - origin.longitude);
+  const startLatitude = toRadians(origin.latitude);
+  const endLatitude = toRadians(destination.latitude);
+
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const createOrderId = () => `CW-${Date.now()}`;
+const distanceBetween = haversineKm;
 
 const extractId = (value) => {
   if (!value) {
@@ -48,6 +60,21 @@ const markOrderPaid = async (order, { razorpayOrderId, razorpayPaymentId }) => {
   return order;
 };
 
+const findMatchingServiceArea = async (customerLocation) => {
+  const activeAreas = await ServiceArea.find({ isActive: true }).sort({ radiusKm: 1, createdAt: 1 });
+
+  return (
+    activeAreas.find((serviceArea) => {
+      const customerAreaDistance = haversineKm(
+        { latitude: serviceArea.latitude, longitude: serviceArea.longitude },
+        customerLocation
+      );
+
+      return customerAreaDistance <= serviceArea.radiusKm;
+    }) || null
+  );
+};
+
 const createOrder = async (req, res) => {
   try {
     const {
@@ -64,11 +91,19 @@ const createOrder = async (req, res) => {
       return res.status(404).json({ message: "Dealer not found or inactive" });
     }
 
+    const serviceArea = await findMatchingServiceArea(customerLocation);
+    if (!serviceArea) {
+      return res.status(400).json({
+        message: "Delivery for this location is not available yet. We will be there soon."
+      });
+    }
+
     const payment = buildPaymentBreakdown({ amount, platformFee, riderFee });
     const order = await Order.create({
       orderId: createOrderId(),
       customerId: req.user._id,
       dealerId,
+      serviceAreaId: serviceArea._id,
       customerLocation,
       dealerLocation,
       amount: payment.amount,
@@ -127,7 +162,12 @@ const createOrder = async (req, res) => {
     return res.status(201).json({
       message: "Order created",
       order,
-      nearbyRiders
+      nearbyRiders,
+      serviceArea: {
+        id: serviceArea._id,
+        name: serviceArea.name,
+        city: serviceArea.city
+      }
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -139,7 +179,8 @@ const getOrderById = async (req, res) => {
     const order = await Order.findById(req.params.id)
       .populate("customerId", "name phone address latitude longitude")
       .populate("riderId", "name phone bikeNumber currentLocation")
-      .populate("dealerId", "dealerName agencyName phone location");
+      .populate("dealerId", "dealerName agencyName phone location")
+      .populate("serviceAreaId", "name city address latitude longitude radiusKm");
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -160,6 +201,7 @@ const getOrdersByUser = async (req, res) => {
     const orders = await Order.find({ customerId: req.params.userid })
       .populate("dealerId", "dealerName agencyName location")
       .populate("riderId", "name currentLocation")
+      .populate("serviceAreaId", "name city")
       .sort({ createdAt: -1 });
     return res.json(orders);
   } catch (error) {

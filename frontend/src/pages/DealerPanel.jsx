@@ -66,7 +66,7 @@ function DealerPanel() {
 
   if (getStoredToken() && getStoredRole() && getStoredRole() !== "dealer") {
     return (
-      <section className="panel auth-panel">
+      <section className="panel auth-panel mobile-auth-card">
         <h1>Dealer Only</h1>
         <p className="error-text">This panel is only available to dealer accounts.</p>
         <button className="primary-button" type="button" onClick={() => navigate("/login")}>Go to Login</button>
@@ -77,9 +77,9 @@ function DealerPanel() {
   return (
     <div className="stack">
       {!isLoggedInDealer && (
-        <section className="panel auth-panel">
+        <section className="panel auth-panel mobile-auth-card">
           <h1>Dealer Login</h1>
-          <p className="helper-text">Use the dealer phone number and password created by admin onboarding. demo phone= 2222222222 and pass=222222</p>
+          <p className="helper-text">Use the dealer phone number and password created by admin onboarding. Seeded dealer: 7000000001 / 123456.</p>
           <form className="form-grid" onSubmit={handleLogin}>
             <input
               placeholder="Phone"
@@ -188,3 +188,5 @@ function DealerPanel() {
 }
 
 export default DealerPanel;
+
+

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const Dealer = require("../models/Dealer");
 const Order = require("../models/Order");
 const Rider = require("../models/Rider");
+const ServiceArea = require("../models/ServiceArea");
 const User = require("../models/User");
 const { sendResetOtpEmail } = require("../utils/email");
 const { normalizeEmail, isValidEmail } = require("../utils/emailValidation");
@@ -203,12 +204,22 @@ const getDealers = async (_req, res) => {
   }
 };
 
+const getServiceAreas = async (_req, res) => {
+  try {
+    const serviceAreas = await ServiceArea.find({ isActive: true }).sort({ city: 1, name: 1 });
+    return res.json(serviceAreas);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 const getPublicMetrics = async (_req, res) => {
   try {
-    const [totalOrders, activeRiders, activeDealers, paidOrders] = await Promise.all([
+    const [totalOrders, activeRiders, activeDealers, activeServiceAreas, paidOrders] = await Promise.all([
       Order.countDocuments({}),
       Rider.countDocuments({ isActive: true }),
       Dealer.countDocuments({ isActive: true }),
+      ServiceArea.countDocuments({ isActive: true }),
       Order.find({ paymentStatus: "success" }).select("platformFee riderFee dealerAmount")
     ]);
 
@@ -230,6 +241,7 @@ const getPublicMetrics = async (_req, res) => {
       totalOrders,
       activeRiders,
       activeDealers,
+      activeServiceAreas,
       ...revenue
     });
   } catch (error) {
@@ -245,5 +257,6 @@ module.exports = {
   getUserProfile,
   updateUserLocation,
   getDealers,
+  getServiceAreas,
   getPublicMetrics
 };

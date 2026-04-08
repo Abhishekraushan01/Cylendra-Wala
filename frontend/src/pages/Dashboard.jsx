@@ -3,15 +3,19 @@ import { useNavigate } from "react-router-dom";
 import {
   createAdminDealer,
   createAdminRider,
+  createAdminServiceArea,
   deleteAdminDealer,
   deleteAdminRider,
+  deleteAdminServiceArea,
   fetchAdminDealers,
   fetchAdminOrders,
   fetchAdminRiders,
+  fetchAdminServiceAreas,
   fetchDealerNotifications,
   fetchProfile,
   updateAdminDealerStatus,
-  updateAdminRiderStatus
+  updateAdminRiderStatus,
+  updateAdminServiceAreaStatus
 } from "../services/api";
 import { sanitizePhone } from "../utils/form";
 import { getStoredRole } from "../utils/storage";
@@ -38,8 +42,18 @@ const initialRiderForm = {
   longitude: ""
 };
 
+const initialServiceAreaForm = {
+  name: "",
+  city: "",
+  address: "",
+  latitude: "",
+  longitude: "",
+  radiusKm: "5"
+};
+
 const panelOptions = [
   { id: "overview", label: "Admin overview" },
+  { id: "areas", label: "Serviceable Areas" },
   { id: "dealer", label: "Onboard Dealer" },
   { id: "rider", label: "Onboard Rider" },
   { id: "registry", label: "Registry Explorer" }
@@ -51,10 +65,12 @@ function Dashboard() {
   const [orders, setOrders] = useState([]);
   const [riders, setRiders] = useState([]);
   const [dealers, setDealers] = useState([]);
+  const [serviceAreas, setServiceAreas] = useState([]);
   const [dealerNotifications, setDealerNotifications] = useState([]);
   const [selectedDealerId, setSelectedDealerId] = useState("");
   const [dealerForm, setDealerForm] = useState(initialDealerForm);
   const [riderForm, setRiderForm] = useState(initialRiderForm);
+  const [serviceAreaForm, setServiceAreaForm] = useState(initialServiceAreaForm);
   const [registryView, setRegistryView] = useState("orders");
   const [activePanel, setActivePanel] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,15 +92,17 @@ function Dashboard() {
 
       setAuthorized(true);
 
-      const [ordersResponse, ridersResponse, dealersResponse] = await Promise.all([
+      const [ordersResponse, ridersResponse, dealersResponse, serviceAreasResponse] = await Promise.all([
         fetchAdminOrders(),
         fetchAdminRiders(),
-        fetchAdminDealers()
+        fetchAdminDealers(),
+        fetchAdminServiceAreas()
       ]);
 
       setOrders(ordersResponse.data);
       setRiders(ridersResponse.data);
       setDealers(dealersResponse.data);
+      setServiceAreas(serviceAreasResponse.data);
 
       const preferredDealerId = selectedDealerId || dealersResponse.data[0]?._id || "";
       setSelectedDealerId(preferredDealerId);
@@ -97,10 +115,7 @@ function Dashboard() {
       }
     } catch (requestError) {
       setAuthorized(false);
-      setError(
-        requestError.response?.data?.message ||
-          "Admin dashboard needs a valid admin login. Use the seeded admin account to view this page."
-      );
+      setError(requestError.response?.data?.message || "Admin dashboard needs a valid admin login.");
     } finally {
       setLoading(false);
     }
@@ -179,10 +194,27 @@ function Dashboard() {
     }
   };
 
-  const handleToggleDealer = async (dealerId, isActive) => {
+  const handleCreateServiceArea = async (event) => {
+    event.preventDefault();
     setMessage("");
     setError("");
 
+    try {
+      await createAdminServiceArea({
+        ...serviceAreaForm,
+        latitude: Number(serviceAreaForm.latitude),
+        longitude: Number(serviceAreaForm.longitude),
+        radiusKm: Number(serviceAreaForm.radiusKm)
+      });
+      setMessage("Serviceable area launched successfully.");
+      setServiceAreaForm(initialServiceAreaForm);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to create serviceable area");
+    }
+  };
+
+  const toggleDealer = async (dealerId, isActive) => {
     try {
       const response = await updateAdminDealerStatus(dealerId, !isActive);
       setMessage(response.data.message);
@@ -192,34 +224,7 @@ function Dashboard() {
     }
   };
 
-  const handleDeleteDealer = async (dealerId, agencyName) => {
-    const confirmed = window.confirm(
-      `Permanently delete dealer "${agencyName}"? This only works if no linked orders exist.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setMessage("");
-    setError("");
-
-    try {
-      const response = await deleteAdminDealer(dealerId);
-      setMessage(response.data.message);
-      if (selectedDealerId === dealerId) {
-        setSelectedDealerId("");
-      }
-      await loadDashboard();
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to delete dealer");
-    }
-  };
-
-  const handleToggleRider = async (riderId, isActive) => {
-    setMessage("");
-    setError("");
-
+  const toggleRider = async (riderId, isActive) => {
     try {
       const response = await updateAdminRiderStatus(riderId, !isActive);
       setMessage(response.data.message);
@@ -229,17 +234,34 @@ function Dashboard() {
     }
   };
 
-  const handleDeleteRider = async (riderId, riderName) => {
-    const confirmed = window.confirm(
-      `Permanently delete rider "${riderName}"? This only works if no linked orders exist.`
-    );
+  const toggleServiceArea = async (serviceAreaId, isActive) => {
+    try {
+      const response = await updateAdminServiceAreaStatus(serviceAreaId, !isActive);
+      setMessage(response.data.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to update serviceable area status");
+    }
+  };
 
-    if (!confirmed) {
+  const deleteDealer = async (dealerId, agencyName) => {
+    if (!window.confirm(`Permanently delete dealer "${agencyName}"? This only works if no linked orders exist.`)) {
       return;
     }
 
-    setMessage("");
-    setError("");
+    try {
+      const response = await deleteAdminDealer(dealerId);
+      setMessage(response.data.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to delete dealer");
+    }
+  };
+
+  const deleteRider = async (riderId, riderName) => {
+    if (!window.confirm(`Permanently delete rider "${riderName}"? This only works if no linked orders exist.`)) {
+      return;
+    }
 
     try {
       const response = await deleteAdminRider(riderId);
@@ -250,116 +272,150 @@ function Dashboard() {
     }
   };
 
-  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const deleteServiceArea = async (serviceAreaId, serviceAreaName) => {
+    if (!window.confirm(`Permanently delete serviceable area "${serviceAreaName}"? This only works if no linked orders exist.`)) {
+      return;
+    }
 
-  const filteredOrders = useMemo(
-    () =>
-      orders.filter((order) => {
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        const haystack = [
-          order.orderId,
-          order.customerId?.name,
-          order.customerId?.phone,
-          order.riderId?.name,
-          order.riderId?.phone,
-          order.riderId?.email,
-          order.dealerId?.agencyName,
-          order.dealerId?.phone
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return haystack.includes(normalizedSearch);
-      }),
-    [orders, normalizedSearch]
-  );
-
-  const filteredRiders = useMemo(
-    () =>
-      riders.filter((rider) => {
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        const haystack = [rider.name, rider.phone, rider.email, rider.bikeNumber]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return haystack.includes(normalizedSearch);
-      }),
-    [riders, normalizedSearch]
-  );
-
-  const filteredDealers = useMemo(
-    () =>
-      dealers.filter((dealer) => {
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        const haystack = [dealer.dealerName, dealer.agencyName, dealer.phone]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return haystack.includes(normalizedSearch);
-      }),
-    [dealers, normalizedSearch]
-  );
-
-  const renderOverview = () => {
-    const selectedDealer = dealers.find((dealer) => dealer._id === selectedDealerId);
-
-    return (
-      <div className="stack compact-stack">
-        <section className="panel">
-          <p className="eyebrow">Admin control room</p>
-          <h2>Keep onboarding, monitoring, and dealer communication in one place.</h2>
-          <p>
-            Use the menu to move between onboarding flows and the registry explorer. Dealer alerts stay visible here so new bookings are easy to spot.
-          </p>
-        </section>
-
-        <section className="panel">
-          <div className="table-toolbar">
-            <div>
-              <h3>Dealer Notifications</h3>
-              <p>Review the latest order alerts for any active dealer.</p>
-            </div>
-            <select value={selectedDealerId} onChange={(event) => setSelectedDealerId(event.target.value)}>
-              <option value="">Select dealer</option>
-              {dealers.map((dealer) => (
-                <option key={dealer._id} value={dealer._id}>
-                  {dealer.agencyName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="data-list compact-list notification-list top-gap">
-            {selectedDealer && <p><strong>{selectedDealer.agencyName}</strong> - {selectedDealer.phone}</p>}
-            {dealerNotifications.slice(0, 8).map((notification, index) => (
-              <div className="management-item" key={`${notification.createdAt}-${index}`}>
-                <p>{notification.message}</p>
-                <p>
-                  Order: {notification.orderId?.orderId || "Pending"}
-                  {notification.customerId?.phone ? ` | Customer: ${notification.customerId.phone}` : ""}
-                </p>
-              </div>
-            ))}
-            {!dealerNotifications.length && !loading && <p>No dealer notifications yet.</p>}
-          </div>
-        </section>
-      </div>
-    );
+    try {
+      const response = await deleteAdminServiceArea(serviceAreaId);
+      setMessage(response.data.message);
+      await loadDashboard();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to delete serviceable area");
+    }
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredOrders = useMemo(() => orders.filter((order) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return [
+      order.orderId,
+      order.customerId?.name,
+      order.customerId?.phone,
+      order.riderId?.name,
+      order.riderId?.phone,
+      order.dealerId?.agencyName,
+      order.dealerId?.phone,
+      order.serviceAreaId?.name,
+      order.serviceAreaId?.city
+    ].filter(Boolean).join(" ").toLowerCase().includes(normalizedSearch);
+  }), [orders, normalizedSearch]);
+
+  const filteredRiders = useMemo(() => riders.filter((rider) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return [rider.name, rider.phone, rider.email, rider.bikeNumber]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch);
+  }), [riders, normalizedSearch]);
+
+  const filteredDealers = useMemo(() => dealers.filter((dealer) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return [dealer.dealerName, dealer.agencyName, dealer.phone]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch);
+  }), [dealers, normalizedSearch]);
+
+  const renderOverview = () => (
+    <div className="stack compact-stack">
+      <section className="panel handset-shell">
+        <p className="eyebrow">Admin control room</p>
+        <h2>Launch city by city with serviceable areas and operator onboarding.</h2>
+        <p>Keep onboarding, dealer notifications, and launch-area activation in one place so your rollout can start small and expand safely.</p>
+      </section>
+
+      <section className="panel handset-shell">
+        <div className="table-toolbar">
+          <div>
+            <h3>Dealer Notifications</h3>
+            <p>Review the latest order alerts for any active dealer.</p>
+          </div>
+          <select value={selectedDealerId} onChange={(event) => setSelectedDealerId(event.target.value)}>
+            <option value="">Select dealer</option>
+            {dealers.map((dealer) => (
+              <option key={dealer._id} value={dealer._id}>{dealer.agencyName}</option>
+            ))}
+          </select>
+        </div>
+        <div className="data-list compact-list notification-list top-gap">
+          {dealerNotifications.slice(0, 8).map((notification, index) => (
+            <div className="management-item" key={`${notification.createdAt}-${index}`}>
+              <p>{notification.message}</p>
+              <p>
+                Order: {notification.orderId?.orderId || "Pending"}
+                {notification.customerId?.phone ? ` | Customer: ${notification.customerId.phone}` : ""}
+              </p>
+            </div>
+          ))}
+          {!dealerNotifications.length && !loading && <p>No dealer notifications yet.</p>}
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderAreas = () => (
+    <div className="stack compact-stack">
+      <section className="panel handset-shell">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Launch control</p>
+            <h2>Serviceable Areas</h2>
+            <p>Add the cities or zones where the app should accept bookings right now.</p>
+          </div>
+        </div>
+        <form className="form-grid" onSubmit={handleCreateServiceArea}>
+          <input placeholder="Area name" value={serviceAreaForm.name} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, name: event.target.value })} />
+          <input placeholder="City" value={serviceAreaForm.city} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, city: event.target.value })} />
+          <input placeholder="Address or landmark" value={serviceAreaForm.address} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, address: event.target.value })} />
+          <div className="two-column-grid form-grid-inline">
+            <input placeholder="Latitude" value={serviceAreaForm.latitude} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, latitude: event.target.value })} />
+            <input placeholder="Longitude" value={serviceAreaForm.longitude} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, longitude: event.target.value })} />
+          </div>
+          <input placeholder="Radius (km)" value={serviceAreaForm.radiusKm} onChange={(event) => setServiceAreaForm({ ...serviceAreaForm, radiusKm: event.target.value })} />
+          <button className="primary-button" type="submit">Launch Area</button>
+        </form>
+      </section>
+
+      <section className="panel handset-shell">
+        <h3>Current Launch Areas</h3>
+        <div className="data-list compact-list management-list top-gap">
+          {serviceAreas.map((area) => (
+            <div className="management-item" key={area._id}>
+              <p><strong>{area.name}</strong> - {area.city}</p>
+              <p>{area.address || "No landmark"}</p>
+              <p>Radius: {area.radiusKm} km | {area.isActive ? "Live" : "Paused"}</p>
+              <div className="action-row compact-actions">
+                <button className="ghost-button" type="button" onClick={() => toggleServiceArea(area._id, area.isActive)}>
+                  {area.isActive ? "Pause" : "Go Live"}
+                </button>
+                <button className="ghost-button danger-button" type="button" onClick={() => deleteServiceArea(area._id, area.name)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!serviceAreas.length && !loading && <p>No serviceable areas configured yet.</p>}
+        </div>
+      </section>
+    </div>
+  );
+
   const renderDealerForm = () => (
-    <section className="panel">
+    <section className="panel handset-shell">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Admin onboarding</p>
@@ -387,7 +443,7 @@ function Dashboard() {
   );
 
   const renderRiderForm = () => (
-    <section className="panel">
+    <section className="panel handset-shell">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Admin onboarding</p>
@@ -411,12 +467,12 @@ function Dashboard() {
   );
 
   const renderRegistry = () => (
-    <section className="panel registry-panel">
+    <section className="panel registry-panel handset-shell">
       <div className="table-toolbar">
         <div>
           <p className="eyebrow">Admin records</p>
           <h2>Registry Explorer</h2>
-          <p>Pick one registry at a time and search by name, contact number, or email.</p>
+          <p>Pick one registry at a time and search by name, contact number, email, or area.</p>
         </div>
         <div className="toolbar-controls registry-controls">
           <select value={registryView} onChange={(event) => setRegistryView(event.target.value)}>
@@ -424,11 +480,7 @@ function Dashboard() {
             <option value="riders">Riders table</option>
             <option value="dealers">Dealer table</option>
           </select>
-          <input
-            placeholder="Search by name, contact, or email"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+          <input placeholder="Search records" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
         </div>
       </div>
 
@@ -440,6 +492,7 @@ function Dashboard() {
               <p>Customer: {order.customerId?.name || "Unknown"} ({order.customerId?.phone || "No contact"})</p>
               <p>Rider: {order.riderId?.name || "Unassigned"} ({order.riderId?.phone || "No contact"})</p>
               <p>Dealer: {order.dealerId?.agencyName || "Unknown"} ({order.dealerId?.phone || "No contact"})</p>
+              <p>Area: {order.serviceAreaId?.name || "No area"}</p>
             </div>
           ))}
           {!filteredOrders.length && !loading && <p>No matching orders found.</p>}
@@ -455,10 +508,10 @@ function Dashboard() {
               <p>Contact: {rider.phone || "No contact"}</p>
               <p>Bike: {rider.bikeNumber}</p>
               <div className="action-row compact-actions">
-                <button className="ghost-button" type="button" onClick={() => handleToggleRider(rider._id, rider.isActive)}>
+                <button className="ghost-button" type="button" onClick={() => toggleRider(rider._id, rider.isActive)}>
                   {rider.isActive ? "Disable" : "Enable"}
                 </button>
-                <button className="ghost-button danger-button" type="button" onClick={() => handleDeleteRider(rider._id, rider.name)}>
+                <button className="ghost-button danger-button" type="button" onClick={() => deleteRider(rider._id, rider.name)}>
                   Delete
                 </button>
               </div>
@@ -476,10 +529,10 @@ function Dashboard() {
               <p>Dealer: {dealer.dealerName}</p>
               <p>Contact: {dealer.phone || "No contact"}</p>
               <div className="action-row compact-actions">
-                <button className="ghost-button" type="button" onClick={() => handleToggleDealer(dealer._id, dealer.isActive)}>
+                <button className="ghost-button" type="button" onClick={() => toggleDealer(dealer._id, dealer.isActive)}>
                   {dealer.isActive ? "Disable" : "Enable"}
                 </button>
-                <button className="ghost-button danger-button" type="button" onClick={() => handleDeleteDealer(dealer._id, dealer.agencyName)}>
+                <button className="ghost-button danger-button" type="button" onClick={() => deleteDealer(dealer._id, dealer.agencyName)}>
                   Delete
                 </button>
               </div>
@@ -492,6 +545,10 @@ function Dashboard() {
   );
 
   const renderActivePanel = () => {
+    if (activePanel === "areas") {
+      return renderAreas();
+    }
+
     if (activePanel === "dealer") {
       return renderDealerForm();
     }
@@ -509,7 +566,7 @@ function Dashboard() {
 
   if (!loading && !authorized) {
     return (
-      <section className="panel auth-panel">
+      <section className="panel auth-panel mobile-auth-card">
         <h1>Admin Only</h1>
         <p className="error-text">This dashboard is only available to admin accounts.</p>
         <button className="primary-button" type="button" onClick={() => navigate("/login")}>Go to Login</button>
@@ -544,7 +601,7 @@ function Dashboard() {
           {message && <section className="panel slim-panel"><p className="success-text">{message}</p></section>}
 
           <div className="dashboard-panel-body">
-            {loading ? <section className="panel"><p>Loading admin workspace...</p></section> : renderActivePanel()}
+            {loading ? <section className="panel handset-shell"><p>Loading admin workspace...</p></section> : renderActivePanel()}
           </div>
         </aside>
       </div>

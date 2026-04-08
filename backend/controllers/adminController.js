@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const Dealer = require("../models/Dealer");
 const Order = require("../models/Order");
 const Rider = require("../models/Rider");
+const ServiceArea = require("../models/ServiceArea");
 const { normalizeEmail, isValidEmail } = require("../utils/emailValidation");
 const { isValidPhone, normalizePhone } = require("../utils/phone");
 
@@ -29,6 +30,7 @@ const getAllOrders = async (_req, res) => {
       .populate("customerId", "name phone")
       .populate("riderId", "name phone email")
       .populate("dealerId", "dealerName agencyName phone")
+      .populate("serviceAreaId", "name city")
       .sort({ createdAt: -1 });
 
     return res.json(orders);
@@ -274,6 +276,93 @@ const getDealerNotifications = async (req, res) => {
   }
 };
 
+const getServiceAreas = async (_req, res) => {
+  try {
+    const serviceAreas = await ServiceArea.find({}).sort({ city: 1, name: 1 });
+    return res.json(serviceAreas);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const createServiceArea = async (req, res) => {
+  try {
+    const { name, city, address, latitude, longitude, radiusKm } = req.body;
+
+    if (!name || !city) {
+      return res.status(400).json({ message: "Area name and city are required" });
+    }
+
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
+    const parsedRadius = Number(radiusKm);
+
+    if (Number.isNaN(parsedLatitude) || Number.isNaN(parsedLongitude)) {
+      return res.status(400).json({ message: "Area latitude and longitude are required" });
+    }
+
+    if (Number.isNaN(parsedRadius) || parsedRadius < 0.5) {
+      return res.status(400).json({ message: "Radius must be at least 0.5 km" });
+    }
+
+    const serviceArea = await ServiceArea.create({
+      name,
+      city,
+      address,
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
+      radiusKm: parsedRadius,
+      isActive: true,
+      createdByAdmin: req.user._id
+    });
+
+    return res.status(201).json({
+      message: "Serviceable area created successfully",
+      serviceArea
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const updateServiceAreaStatus = async (req, res) => {
+  try {
+    const serviceArea = await ServiceArea.findById(req.params.id);
+    if (!serviceArea) {
+      return res.status(404).json({ message: "Serviceable area not found" });
+    }
+
+    serviceArea.isActive = Boolean(req.body.isActive);
+    await serviceArea.save();
+
+    return res.json({
+      message: `Serviceable area ${serviceArea.isActive ? "enabled" : "disabled"} successfully`,
+      serviceArea
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteServiceArea = async (req, res) => {
+  try {
+    const serviceArea = await ServiceArea.findById(req.params.id);
+    if (!serviceArea) {
+      return res.status(404).json({ message: "Serviceable area not found" });
+    }
+
+    const linkedOrder = await Order.findOne({ serviceAreaId: serviceArea._id });
+    if (linkedOrder) {
+      return res.status(400).json({ message: "Cannot delete a serviceable area with linked orders. Disable instead." });
+    }
+
+    await ServiceArea.findByIdAndDelete(serviceArea._id);
+    return res.json({ message: "Serviceable area deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllOrders,
   getRevenue,
@@ -285,5 +374,9 @@ module.exports = {
   createDealer,
   updateDealerStatus,
   deleteDealer,
-  getDealerNotifications
+  getDealerNotifications,
+  getServiceAreas,
+  createServiceArea,
+  updateServiceAreaStatus,
+  deleteServiceArea
 };
