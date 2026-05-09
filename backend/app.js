@@ -17,6 +17,15 @@ const createApp = () => {
   );
   app.use(express.json());
 
+  app.get("/", (_req, res) => {
+    res.json({
+      status: "ok",
+      service: "cylendra-wala-backend",
+      message: "Backend is live. Use the /api routes to access the application API.",
+      health: "/api/health"
+    });
+  });
+
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "cylendra-wala-backend" });
   });
